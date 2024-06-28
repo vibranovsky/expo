@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import axios from 'axios';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import Requests from '@/helpers/requests';
 import { LinkButton } from '@/components/LinkButton';
 import { useFocusEffect } from '@react-navigation/native';
+import StockTable from '@/components/Table/StocksTable';
 
 interface Stock {
   symbol: string;
@@ -17,10 +17,11 @@ export default function StocksScreen() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const previousStocks = useRef<Stock[]>([]);
 
   const fetchStocks = async () => {
     try {
-      const result = await Requests.getStocks()
+      const result = await Requests.getStocks();
       setStocks(result);
       setError(null);
     } catch (err) {
@@ -35,21 +36,15 @@ export default function StocksScreen() {
     fetchStocks();
   }, []);
 
+  useEffect(() => {
+    previousStocks.current = stocks;
+  }, [stocks]);
+
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       const interval = setInterval(fetchStocks, 5000);
       return () => clearInterval(interval);
     }, [])
-  );
-
-  const renderItem = ({ item }: { item:Stock }) => (
-    <View style={styles.row}>
-      <Text style={styles.cell}>{item.symbol}</Text>
-      <Text style={styles.cell}>{item.price}</Text>
-      <Text style={styles.cell}>{item.bestBidPrice}</Text>
-      <Text style={styles.cell}>{item.bestAskPrice}</Text>
-      <Text style={styles.cell}>{item.bestAskSize}</Text>
-    </View>
   );
 
   return (
@@ -62,11 +57,7 @@ export default function StocksScreen() {
         ) : (
           <>
             {error && <Text style={styles.error}>{error}</Text>}
-            <FlatList
-              data={stocks}
-              renderItem={renderItem}
-              keyExtractor={(item) => item.symbol}
-            />
+            <StockTable stocks={stocks} previousStocks={previousStocks.current} />
           </>
         )}
       </View>
@@ -87,7 +78,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     padding: 8,
     backgroundColor: 'blue',
-    borderRadius: 40,
     color: 'white',
     fontSize: 16,
   },
@@ -102,10 +92,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
-  },
-  cell: {
-    flex: 1,
-    textAlign: 'center',
   },
   error: {
     color: 'red',
